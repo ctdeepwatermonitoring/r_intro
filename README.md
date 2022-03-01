@@ -8,3 +8,5 @@ https://github.com/ctdeepwatermonitoring/r_intro/blob/main/git_intro/git_intro.m
 
 ## R Intro Part 2 Session
 
+https://github.com/ctdeepwatermonitoring/r_intro/tree/main/r_intro_2
+
