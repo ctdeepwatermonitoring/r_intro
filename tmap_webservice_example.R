@@ -1,7 +1,7 @@
 library(tmap)
 library(sf)
 
-# The base urls needed to make a webservice request
+# The base urls needed to make a web service request
 r_base <- 'https://www.waterqualitydata.us/data/Result/search?'
 s_base <- 'https://www.waterqualitydata.us/data/Station/search?'
 
@@ -26,7 +26,7 @@ data <- read.csv(req_data,header=TRUE,stringsAsFactors = FALSE)
 site <- read.csv(req_site,header=TRUE,stringsAsFactors = FALSE)
 site <- site[,c(3:6,12:13)] #select needed cols
 
-# CT DEEP Open Data Request
+# CT DEEP Open Data GIS Request
 m_base  <- 'https://services1.arcgis.com/FjPcSmEFuDYlIdKC/arcgis/rest/services/'
 lyr     <- 'Major_Drainage_Basin_Set/FeatureServer/1/query?'
 m_qry   <- 'where=1%3D1&outFields=*&outSR=4326&f=json'
@@ -47,13 +47,13 @@ data_sf <- sf::st_as_sf(data_loc,
                         crs = 4326)
 basin_sf <- st_read(m_basn)
 
-
+# static map
 tmap_mode("plot")
 tm_shape(basin_sf) +
   tm_polygons("MAJOR",palette = "PuBu",legend.show = FALSE)+
 tm_shape(data_sf, title = "Conductivity") + 
   tm_bubbles(size = "ResultMeasureValue") +
-#tm_style("classic")+
+tm_style("classic")+
 tm_layout('2019 Lake Conductivity',
   title.position = c("right","top"),
   bg.color = "grey",
@@ -63,6 +63,7 @@ tm_layout('2019 Lake Conductivity',
   legend.bg.color = "grey",
   legend.bg.alpha = 0.5)
 
+# interactive map
 tmap_mode("view")
 tm_basemap("Stamen.Watercolor") +
   tm_shape(basin_sf) +

@@ -1,0 +1,180 @@
+#seasonal intro R script: part 2, data visualization
+#the purpose of this script is to show example code for various ways of 
+#visualizing data, primarily with ggplot and leaflet
+
+#If you open the project file first, you do not need 
+#to set the working directory, otherwise uncomment and run line below
+#setwd("P:/R/seasonalRintro") #same directory we already made in part 1
+
+install.packages("ggplot2") #for making graphs and charts
+install.packages("leaflet") #for mapping
+install.packages("htmlwidgets") #for exporting html objects
+install.packages("sf") #for working with shapefiles
+install.packages("lubridate") #working with dates
+# install.packages("dplyr") #you should have this installed already
+
+#the various packages we will use
+library(ggplot2) 
+library(leaflet) 
+library(htmlwidgets)
+library(sf) 
+library(lubridate) 
+library(dplyr) 
+
+################################################################################
+#######1. simple line charts####################################################
+
+#reading in our data and putting it in the correct format
+hoboData <- read.csv("hoboData.csv") #read in some example data
+sapply(hoboData, class) #checking data types is always a good habit
+hoboData$Temp <- as.numeric(hoboData$Temp) #fixing so we can plot it
+hoboData$Date_Time <- as.POSIXct(hoboData$Date_Time, format = "%m/%d/%Y %H:%M")
+
+#example plot using base R (no packages)
+plot(hoboData$Date_Time, hoboData$Temp) 
+
+#but we can make it prettier using ggplot!
+line_chart <- ggplot(hoboData) + #select our data
+  geom_line(aes(y = Temp, x = Date_Time)) #select x and y variables, plot type
+line_chart #when we print the ggplot object, it appears in the viewer
+
+#the ggplot syntax works by adding on modifications with '+' after the initial
+#ggplot() line. the above example is the equivalent of the base R code
+#lets add some modifications!
+
+#add another temp column to show multiple lines on one chart
+hoboData$TempAlt <- hoboData$Temp - 3 #TempAlt is 3 deg less than Temp
+
+#creating line chart
+line_chart <- ggplot(hoboData, aes(x = Date_Time)) + #select our data, mapping x variable
+  geom_line(aes(y = Temp), color = "steelblue", linetype = "solid", linewidth = 0.5) + #first temp line with y variable
+  geom_line(aes(y = TempAlt), color = "navy", linetype = "solid", linewidth = 0.7) + #second line to show syntax on second y variable
+  geom_hline(yintercept = 15, linetype = "dashed", color = "darkred") + #adding an arbitrary dashed line at a temp value
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b %Y") + #make it show all months with year
+  labs(
+    title = "Plotting Example Temperature Data", #add title element
+    subtitle = "Graph elements chosen to symbolize the wonders of ggplot",
+    x = "Date", #change axis label from column name to manual name
+    y = "Temperature (deg C)" 
+  ) 
+line_chart #print the graph
+
+#we can use ggsave to easily export the plot as an image
+#it automatically saves the last ggplot object
+ggsave("line_chart.png", width = 8, height = 6, units = "in", dpi = 300) #saving with file name, size, and DPI
+#you can also right click on the image in the viewer to quickly copy and paste it
+
+################################################################################
+#######2. simple bar charts#####################################################
+
+#lets transform the data into a format that works for a bar chart: monthly averages
+hoboData <- hoboData[!is.na(hoboData$Date_Time), ] #remove NAs. syntax: keep the inverse (!) of the rows that evaluate to NA (is.na)
+hoboData$month <- month(hoboData$Date_Time, label = TRUE) #use lubridate to extract month name abbreviation
+
+#group by month and calculate the average temperature (with dplyr)
+monthlyAvg <- hoboData %>%
+  group_by(month) %>%
+  summarize(monthlyAvg = mean(Temp, na.rm = TRUE))
+
+# Create bar chart
+bar_chart <- ggplot(monthlyAvg, aes(x = month, y = monthlyAvg, fill = monthlyAvg)) +
+  geom_bar(stat = "identity") + #the bar value is based on the y axis value
+  scale_fill_gradient(low = "steelblue", high = "darkred") +  #generate fill colors by temp value
+  labs(
+    title = "Monthly Average Temperature", 
+    x = "Month", 
+    y = "Average Temperature (deg C)") +
+  theme_bw() #you can change the theme, many pretty options!
+bar_chart #print the chart
+
+ggsave("bar_chart.png", width = 6, height = 4, units = "in", dpi = 300) #saving with file name, size, and DPI
+
+################################################################################
+#######3. simple box plots######################################################
+
+#lets try visualizing monthly temp data using box plots instead, as it will show
+#a more accurate distribution of monthly values!
+
+#we can also manually set the colors, needs to be coded to # of objects in the plot
+#in this case, we have 9 months and need 9 colors
+
+colors <- c("#FFD600", "#FDB515", "#00AAE7", "#0D2D6C", "#23AE49", "#FFED46",
+                 "#9ECF7C", "#0072BC", "#68CEF2") #DEEP brand standards!
+
+box_plot <- ggplot(hoboData, aes( x = month, y = Temp, fill = month)) + #categorical fill based on month
+  geom_boxplot() +
+  scale_fill_manual(values = colors) +
+  labs(
+    title = "Monthly Temperature Values", 
+    x = "Month", 
+    y = "Temperature (deg C)") +
+  theme_dark() + #another theme example!
+  theme(legend.position = "none") #legend is not super informative here
+box_plot
+
+ggsave("box_plot.png", width = 5, height = 4, units = "in", dpi = 300) #saving with file name, size, and DPI
+
+################################################################################
+#######4. simple leaflet map####################################################
+
+#leaflet is a great way to quickly create interactive maps and visualize data!
+#it essentially writes javascript for you, so the output is an interactive
+#HTML map that you can zoom in and out of. the syntax is similar to dplyr
+#or ggplot with respect to how you add arguments
+
+#we commonly visualize stations, e.g. yearly benthic sites with associated info
+stations <- read.csv("stations.csv") #this contains spatial info, ie lat/long
+stations <- subset(stations, STA_SEQ > 20700) #subset as we have so many stations
+stations$value <- sample(1:10, nrow(stations) , replace = TRUE) #creating random value column for mapping vis
+
+#simple map with things manually configured
+map <- leaflet(stations) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~xlong, 
+    ~ylat,
+    label = ~WaterbodyName,
+    color = "steelblue",
+    fillOpacity = 0.8, #1 is fully opaque, 0 is fully transparent
+    radius = 2
+  )
+map #display map
+
+#now lets try some more advanced mapping, including symbolizing data based on values
+#and adding in shapefiles! the data used is just example data meant to demonstrate
+#different mapping functionality
+
+#creating colors for mapping values
+low_color <- "red"
+medium_color <- "yellow"
+high_color <- "green"
+color_palette <- colorFactor(
+  palette = c(low_color, medium_color, high_color),
+  domain = stations$value #this is a randomly generated column
+)
+
+#reading in shapefile using sf package
+rivers <- read_sf(dsn = "Named_Waterbody_Set") #dsn indicates the subfolder name
+#you can filter and subset a shapefile the same way that you filter data frames!
+rivers <- rivers[!is.na(rivers$STREAM2), ] #only named streams, so remove NA values
+
+#more advanced map!
+map <- leaflet(stations) %>%
+  addTiles() %>%
+  addProviderTiles("Esri.WorldTopoMap", group = "Topography") %>%  
+  addPolylines(
+    data = rivers, 
+    label = ~STREAM2,
+    color = "#00AAE7", 
+    opacity = 1, 
+    weight = 1.5) %>%
+  addCircleMarkers(
+    ~xlong, 
+    ~ylat,
+    label = paste("Name: ", stations$WaterbodyName, sep = ""), #use paste function to add text on label
+    color = ~color_palette(value),
+    fillOpacity = 1,
+    radius = ~sqrt(value) *2 #scaling point size to value column
+  )
+map #display map
+saveWidget(map, file = "examplemap.html", selfcontained = TRUE) #export map as standalone file

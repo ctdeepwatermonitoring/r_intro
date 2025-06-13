@@ -1,0 +1,40 @@
+#Amos Lake Project 
+
+#Look at Secchi Disk data and plot it
+#export excel data 
+
+#set working directory 
+getwd()
+setwd("P:/R/")
+getwd()
+
+install.packages("dpylr")
+library(dplyr)
+
+#read csv of data from lake observer 
+SecchiData <- read.csv("lake_observer_data_Secchi.csv")
+
+head(SecchiData)
+
+#data frame 
+#look at the percentage of visibility column 
+SecchiData$Percentage.of.Visibility
+
+sapply(SecchiData, class)
+
+#Fix data to use in a plot
+SecchiDataFix <- SecchiData
+SecchiDataFix$Date.Recorded <- as.POSIXct(SecchiDataFix$Date.Recorded, 
+                                          format = "%m/%d/%Y")
+
+#Plot Visbility Data 
+plot(SecchiDataFix$Date.Recorded, SecchiData$Percentage.of.Visibility, 
+     main = "Amos Lake Visibility Percentage over 10 Years",
+     xlab = "Date Recorded", ylab= "Percentage of Visibility out of 100")
+
+#add line of best fit to show general trend of increase in visibility over time
+abline(lm(SecchiData$Percentage.of.Visibility ~ SecchiDataFix$Date.Recorded))
+
+
+#Now look at water quality lake observer data 
+WaterQualityTemperature <- read.xlsx("lake_observer_data_waterquality", sheet = 8)
